@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# Dereference softlinks to find the actual script location
+THIS="$0"
+while [ -h "$THIS" ]; do
+  ls=$(ls -ld "$THIS")
+  softlink=$(expr "$ls" : '.*-> \(.*\)$')
+  if expr "$softlink" : '/.*' > /dev/null; then
+    THIS="$softlink"
+  else
+    THIS=$(dirname "$THIS")/"$softlink"
+  fi
+done
+
+# Get the directory where the script/jar resides
+SCRIPT_DIR=$(cd "$(dirname "$THIS")" && pwd)
+
+# Find the jar file - look in the same directory as the script
+JAR_FILE=$(find "$SCRIPT_DIR" -maxdepth 1 -name "*.jar" | head -1)
+
+if [ -z "$JAR_FILE" ]; then
+  echo "Error: No .jar file found in $SCRIPT_DIR"
+  exit 1
+fi
+
+# Determine Java command
+if [ -n "$FLYWAY_JAVA_CMD" ]; then
+  JAVA_CMD="$FLYWAY_JAVA_CMD"
+else
+  if [ -z "$JAVA_HOME" ]; then
+    JAVA_CMD="java"
+  else
+    JAVA_CMD="$JAVA_HOME/bin/java"
+  fi
+fi
+
+# Extra Java args
+EXTRA_ARGS=""
+case "$(uname)" in
+  Linux*)
+    EXTRA_ARGS="-Djava.security.egd=file:/dev/../dev/urandom"
+    ;;
+esac
+
+# Execute Flyway
+exec "$JAVA_CMD" $EXTRA_ARGS $JAVA_ARGS -jar "$JAR_FILE" "$@"
