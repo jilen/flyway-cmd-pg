@@ -11,9 +11,13 @@ object versions {
 
 object commandline extends MavenModule {
 
-  def compileMvnDeps = Seq(mvn"org.projectlombok:lombok:${versions.lombok}")
+  def compileMvnDeps = Seq(
+    mvn"org.projectlombok:lombok:${versions.lombok}"
+  )
 
-  def annotationProcessorsMvnDeps = Seq(mvn"org.projectlombok:lombok:${versions.lombok}")
+  def annotationProcessorsMvnDeps = Seq(
+    mvn"org.projectlombok:lombok:${versions.lombok}"
+  )
 
   def mvnDeps = Seq(
     mvn"org.flywaydb:flyway-core:${versions.flyway}",
