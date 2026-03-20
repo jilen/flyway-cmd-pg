@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -e
+
+# Flyway command runner with common configuration
+# Usage: scripts/run-flyway-cmd [flyway-args...] command
+
+# Default configuration
+URL="${URL:-jdbc:postgresql://localhost:5432/flyway_test}"
+DB_USER="${DB_USER:-flyway}"
+DB_PASSWORD="${DB_PASSWORD:-flyway}"
+LOCATIONS="${LOCATIONS:-filesystem:./test-migrations}"
+
+exec ./mill --no-server commandline.run \
+    -url="$URL" \
+    -user="$DB_USER" \
+    -password="$DB_PASSWORD" \
+    -locations="$LOCATIONS" \
+    "$@"
