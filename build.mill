@@ -62,8 +62,13 @@ object `package` extends Module {
     // 1. Copy all dependencies and commandline JAR into 'lib'
     val libDir = staging / "lib"
     os.makeDir.all(libDir)
+    // Explicitly copy commandline module jar into lib directory
+    os.copy.into(commandline.jar().path, libDir)
+    // Copy all dependencies
     commandline.runClasspath().map(_.path).filter(os.exists).foreach { p =>
-      if (os.isFile(p)) os.copy.over(p, libDir / p.last)
+      if (os.isFile(p)) {
+        os.copy.into(p, libDir)
+      }
     }
 
     // 2. Copy bin folder
@@ -71,7 +76,7 @@ object `package` extends Module {
       os.copy(binFolder().path, staging / "bin")
     }
 
-    // 3. Create ZIP (Destination first, then Seq of sources)
+    // 3. Create ZIP
     val zipFile = dest / "bundle.zip"
     os.zip(zipFile, Seq(staging))
 
