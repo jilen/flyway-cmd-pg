@@ -15,11 +15,11 @@ done
 # Get the directory where the script/jar resides
 SCRIPT_DIR=$(cd "$(dirname "$THIS")" && pwd)
 
-# Find the jar file - look in the same directory as the script
-JAR_FILE=$(find "$SCRIPT_DIR" -maxdepth 1 -name "*.jar" | head -1)
+# Find the lib directory
+LIB_DIR="$SCRIPT_DIR/../lib"
 
-if [ -z "$JAR_FILE" ]; then
-  echo "Error: No .jar file found in $SCRIPT_DIR"
+if [ ! -d "$LIB_DIR" ]; then
+  echo "Error: lib directory not found at $LIB_DIR"
   exit 1
 fi
 
@@ -43,4 +43,4 @@ case "$(uname)" in
 esac
 
 # Execute Flyway
-exec "$JAVA_CMD" $EXTRA_ARGS $JAVA_ARGS -jar "$JAR_FILE" "$@"
+exec "$JAVA_CMD" $EXTRA_ARGS $JAVA_ARGS -cp "$LIB_DIR/*" org.flywaydb.commandline.Main "$@"

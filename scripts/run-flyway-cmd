@@ -10,9 +10,19 @@ DB_USER="${DB_USER:-flyway}"
 DB_PASSWORD="${DB_PASSWORD:-flyway}"
 LOCATIONS="${LOCATIONS:-filesystem:./test-migrations}"
 
-exec ./mill --no-server commandline.run \
-    -url="$URL" \
-    -user="$DB_USER" \
-    -password="$DB_PASSWORD" \
-    -locations="$LOCATIONS" \
-    "$@"
+# Use dist binary if FLYWAY_DIST is set, otherwise run via mill
+if [ -n "$FLYWAY_DIST" ]; then
+    exec "$FLYWAY_DIST" \
+        -url="$URL" \
+        -user="$DB_USER" \
+        -password="$DB_PASSWORD" \
+        -locations="$LOCATIONS" \
+        "$@"
+else
+    exec ./mill --no-server commandline.run \
+        -url="$URL" \
+        -user="$DB_USER" \
+        -password="$DB_PASSWORD" \
+        -locations="$LOCATIONS" \
+        "$@"
+fi
