@@ -49,8 +49,8 @@ jobs:
       - name: Extract distribution
         run: |
           unzip out/dist.dest/bundle.zip -d /tmp/flyway-dist
-          chmod +x /tmp/flyway-dist/staging/bin/flyway
-          echo "FLYWAY_DIST=/tmp/flyway-dist/staging/bin/flyway" >> $GITHUB_ENV
+          chmod +x /tmp/flyway-dist/bin/flyway
+          echo "FLYWAY_DIST=/tmp/flyway-dist/bin/flyway" >> $GITHUB_ENV
 
       - name: Test Flyway Baseline
         run: |
