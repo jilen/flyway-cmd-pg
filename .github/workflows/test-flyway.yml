@@ -43,6 +43,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mill-
 
+      - name: Build distribution
+        run: ./mill dist
+
+      - name: Extract distribution
+        run: |
+          unzip out/dist.dest/bundle.zip -d /tmp/flyway-dist
+          chmod +x /tmp/flyway-dist/staging/bin/flyway
+          echo "FLYWAY_DIST=/tmp/flyway-dist/staging/bin/flyway" >> $GITHUB_ENV
+
       - name: Test Flyway Baseline
         run: |
           chmod +x scripts/run-flyway-cmd
@@ -62,8 +71,6 @@ jobs:
 
       - name: Test Flyway full cycle (clean -> baseline -> migrate -> info -> repair)
         run: |
-          # Clean
-          # scripts/run-flyway-cmd -cleanDisabled=false clean
           # Baseline with version 0 to ensure V1 gets applied
           scripts/run-flyway-cmd -baselineVersion=0 -baselineDescription="Baseline after clean" baseline
           # Migrate

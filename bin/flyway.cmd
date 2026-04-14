@@ -4,16 +4,11 @@ setlocal
 REM Get the directory where this script resides
 set SCRIPT_DIR=%~dp0
 
-REM Find the jar file in the same directory
-set JAR_FILE=
-for %%f in ("%SCRIPT_DIR%*.jar") do (
-  set JAR_FILE=%%f
-  goto :found_jar
-)
-:found_jar
+REM Find the lib directory
+set LIB_DIR=%SCRIPT_DIR%..\lib
 
-if "%JAR_FILE%"=="" (
-  echo Error: No .jar file found in %SCRIPT_DIR%
+if not exist "%LIB_DIR%" (
+  echo Error: lib directory not found at %LIB_DIR%
   exit /b 1
 )
 
@@ -29,7 +24,7 @@ if not "%FLYWAY_JAVA_CMD%"=="" (
 )
 
 REM Execute Flyway
-%JAVA_CMD% %JAVA_ARGS% -jar "%JAR_FILE%" %*
+%JAVA_CMD% %JAVA_ARGS% -cp "%LIB_DIR%\*" org.flywaydb.commandline.Main %*
 
 REM Exit with the same code as Java
 exit /b %ERRORLEVEL%
