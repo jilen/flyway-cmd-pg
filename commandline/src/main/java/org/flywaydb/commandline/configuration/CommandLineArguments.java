@@ -465,6 +465,7 @@ public class CommandLineArguments {
         //scoped configuration processing.
         boolean processingValid = true;
         String validNamespace = "";
+        String currentFlag = "";
         final String[] processedArgs = new String[args.length];
         for (int i = 0; i < args.length; i++) {
             final String arg = args[i];
@@ -473,6 +474,7 @@ public class CommandLineArguments {
             if (!arg.startsWith("-")) {
                 //it's a verb, lets set the namespace to this.
                 validNamespace = arg;
+                currentFlag = "";
             } else {
                 if (validNamespace.isEmpty()) {
                     continue;
@@ -491,22 +493,18 @@ public class CommandLineArguments {
                         if (paramsInNamespace.contains(paramName)) {
                             final String replacedParamName = "-" + validNamespace + "." + paramName;
                             processedArgs[i] = replacedParamName + "=" + paramValue;
-                        } else {
-                            String preArg = args[i - 1];
-                            if (preArg.startsWith("-") && !preArg.contains("=")) {
-                                preArg = preArg.substring(1);
-                                if (paramsInNamespace.contains(preArg + "." + paramName)) {
-                                    final String replacedParamName = "-"
-                                        + validNamespace
-                                        + "."
-                                        + preArg
-                                        + "."
-                                        + paramName;
-                                    processedArgs[i] = replacedParamName + "=" + paramValue;
-                                }
-                            }
+                        } else if (!currentFlag.isEmpty() && paramsInNamespace.contains(currentFlag + "." + paramName)) {
+                            final String replacedParamName = "-"
+                                + validNamespace
+                                + "."
+                                + currentFlag
+                                + "."
+                                + paramName;
+                            processedArgs[i] = replacedParamName + "=" + paramValue;
                         }
                     }
+                } else {
+                    currentFlag = arg.substring(1);
                 }
             }
         }

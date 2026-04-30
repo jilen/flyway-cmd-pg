@@ -2,17 +2,22 @@
 //| mill-jvm-version: system
 import mill.*
 import mill.javalib.*
+import mill.javalib.publish.*
 
 object versions {
   val lombok = "1.18.44"
-  val flyway = "12.1.1"
-  val jackson = "3.1.0"
+  val flyway = "12.5.0"
+  val jackson = "3.1.1"
+  val commonsText = "1.10.0"
+  val slf4j = "1.7.30"
+  val postgresql = "42.7.2"
+  val jansi = "1.18"
 }
 
 
 
 // Root module for project-wide tasks (default root)
-object `package` extends Module {
+object `package` extends SonatypeCentralPublishModule {
 
   object commandline extends MavenModule {
 
@@ -38,13 +43,12 @@ object `package` extends Module {
       mvn"org.flywaydb:flyway-verb-clean:${versions.flyway}",
       mvn"org.flywaydb:flyway-verb-baseline:${versions.flyway}",
       mvn"org.flywaydb:flyway-verb-repair:${versions.flyway}",
-      mvn"org.flywaydb:flyway-verb-testConnection:${versions.flyway}",
       mvn"org.flywaydb:flyway-nc-scanners:${versions.flyway}",
       mvn"org.flywaydb:flyway-nc-callbacks:${versions.flyway}",
-      mvn"org.apache.commons:commons-text:1.10.0",
-      mvn"org.slf4j:slf4j-nop:1.7.30",
-      mvn"org.postgresql:postgresql:42.7.2",
-      mvn"org.fusesource.jansi:jansi:1.18",
+      mvn"org.apache.commons:commons-text:${versions.commonsText}",
+      mvn"org.slf4j:slf4j-nop:${versions.slf4j}",
+      mvn"org.postgresql:postgresql:${versions.postgresql}",
+      mvn"org.fusesource.jansi:jansi:${versions.jansi}",
       mvn"tools.jackson.core:jackson-databind:${versions.jackson}",
       mvn"tools.jackson.dataformat:jackson-dataformat-xml:${versions.jackson}",
       mvn"tools.jackson.dataformat:jackson-dataformat-toml:${versions.jackson}"
@@ -52,6 +56,97 @@ object `package` extends Module {
   }
 
   def binFolder = Task.Source(moduleDir / "bin")
+
+  def artifactName = "flyway-pg"
+
+  def publishGroupId = Task.Input {
+    Task.env.getOrElse("FLYWAY_PG_GROUP_ID", "io.github.jilen")
+  }
+
+  def publishVersion = Task.Input {
+    Task.env.getOrElse("FLYWAY_PG_VERSION", versions.flyway)
+  }
+
+  def artifact = Task {
+    Artifact(publishGroupId(), artifactName(), publishVersion())
+  }
+
+  override def artifactMetadata = artifact
+
+  override def pomPackagingType = PackagingType.Pom
+
+  def pomSettings = Task {
+    PomSettings(
+      description = "Lightweight Flyway commandline distribution for PostgreSQL only.",
+      organization = Task.env.getOrElse("FLYWAY_PG_ORGANIZATION", "flyway-pg"),
+      url = Task.env.getOrElse("FLYWAY_PG_URL", "https://github.com/jilen/flyway-pg"),
+      licenses = Seq(License.`Apache-2.0`),
+      versionControl = VersionControl(
+        browsableRepository = Some(Task.env.getOrElse("FLYWAY_PG_SCM_URL", "https://github.com/jilen/flyway-pg")),
+        connection = Some(Task.env.getOrElse("FLYWAY_PG_SCM_CONNECTION", "scm:git:https://github.com/jilen/flyway-pg.git")),
+        developerConnection = Some(Task.env.getOrElse("FLYWAY_PG_SCM_DEV_CONNECTION", "scm:git:ssh://git@github.com/jilen/flyway-pg.git")),
+        tag = Some(Task.env.getOrElse("FLYWAY_PG_SCM_TAG", s"v${publishVersion()}"))
+      ),
+      developers = Seq(
+        Developer(
+          id = Task.env.getOrElse("FLYWAY_PG_DEVELOPER_ID", "jilen"),
+          name = Task.env.getOrElse("FLYWAY_PG_DEVELOPER_NAME", "jilen"),
+          url = Task.env.getOrElse("FLYWAY_PG_DEVELOPER_URL", "https://github.com/jilen"),
+          organization = None,
+          organizationUrl = None,
+          email = Task.env.getOrElse("FLYWAY_PG_DEVELOPER_EMAIL", "")
+        )
+      ),
+      packaging = "zip"
+    )
+  }
+
+  def artifactFileNamePrefix = Task {
+    s"${artifactName()}-${publishVersion()}"
+  }
+
+  def pom = Task {
+    val pomContent = Pom(
+      artifact = artifact(),
+      dependencies = Nil,
+      name = artifactName(),
+      pomSettings = pomSettings(),
+      properties = Map(),
+      packagingType = "zip",
+      parentProject = None,
+      bomDependencies = Nil,
+      dependencyManagement = Nil
+    )
+    val pomPath = Task.dest / s"${artifactFileNamePrefix()}.pom"
+    os.write.over(pomPath, pomContent)
+    PathRef(pomPath)
+  }
+
+  def publishArtifacts = Task {
+    PublishModule.PublishData(
+      meta = artifact(),
+      payload = Seq(
+        dist() -> s"${artifactFileNamePrefix()}.zip",
+        pom() -> s"${artifactFileNamePrefix()}.pom"
+      )
+    )
+  }
+
+  override def extraPublish = Task {
+    Seq(
+      PublishInfo(
+        file = dist(),
+        classifier = None,
+        ext = "zip",
+        ivyConfig = "compile",
+        ivyType = "zip"
+      )
+    )
+  }
+
+  override def sonatypeCentralShouldRelease = Task.Input {
+    Task.env.get("SONATYPE_CENTRAL_RELEASE").exists(_.toBoolean)
+  }
 
   // Distribution packaging task
   def dist = Task {

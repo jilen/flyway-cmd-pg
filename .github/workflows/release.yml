@@ -4,19 +4,24 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_run:
-    workflows: ["Test Flyway Commands"]
-    branches: [main, master]
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, for example 12.5.0'
+        required: true
+        type: string
+      release:
+        description: 'Release the deployment on Maven Central'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
-  build-assets:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || startsWith(github.ref, 'refs/tags/v') }}
+  publish-maven-central:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -24,51 +29,47 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build distribution
-        run: ./mill dist
+      - name: Cache Mill packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/coursier/
+            ~/.cache/mill/download/
+          key: ${{ runner.os }}-mill-${{ hashFiles('build.mill') }}
+          restore-keys: |
+            ${{ runner.os }}-mill-
 
-      - name: Find distribution zip
-        id: find-zip
+      - name: Resolve release version
+        id: version
+        shell: bash
         run: |
-          ZIP_PATH=$(find out -name "bundle.zip" | head -1)
-          ZIP_NAME=$(basename "$ZIP_PATH")
-          echo "zip-path=$ZIP_PATH" >> $GITHUB_OUTPUT
-          echo "zip-name=$ZIP_NAME" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Upload distribution artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: flyway-pg
-          path: ${{ steps.find-zip.outputs.zip-path }}
-
-  create-release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build-assets
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download distribution artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: flyway-pg
-
-      - name: Get zip filename
-        id: get-zip
+      - name: Publish to Maven Central
+        env:
+          FLYWAY_PG_VERSION: ${{ steps.version.outputs.version }}
+          FLYWAY_PG_GROUP_ID: ${{ secrets.FLYWAY_PG_GROUP_ID || 'io.github.jilen' }}
+          FLYWAY_PG_ORGANIZATION: ${{ secrets.FLYWAY_PG_ORGANIZATION || 'flyway-pg' }}
+          FLYWAY_PG_URL: ${{ secrets.FLYWAY_PG_URL || 'https://github.com/jilen/flyway-pg' }}
+          FLYWAY_PG_SCM_URL: ${{ secrets.FLYWAY_PG_SCM_URL || 'https://github.com/jilen/flyway-pg' }}
+          FLYWAY_PG_SCM_CONNECTION: ${{ secrets.FLYWAY_PG_SCM_CONNECTION || 'scm:git:https://github.com/jilen/flyway-pg.git' }}
+          FLYWAY_PG_SCM_DEV_CONNECTION: ${{ secrets.FLYWAY_PG_SCM_DEV_CONNECTION || 'scm:git:ssh://git@github.com/jilen/flyway-pg.git' }}
+          FLYWAY_PG_SCM_TAG: ${{ github.event_name == 'push' && github.ref_name || format('v{0}', inputs.version) }}
+          FLYWAY_PG_DEVELOPER_ID: ${{ secrets.FLYWAY_PG_DEVELOPER_ID || 'jilen' }}
+          FLYWAY_PG_DEVELOPER_NAME: ${{ secrets.FLYWAY_PG_DEVELOPER_NAME || 'jilen' }}
+          FLYWAY_PG_DEVELOPER_URL: ${{ secrets.FLYWAY_PG_DEVELOPER_URL || 'https://github.com/jilen' }}
+          FLYWAY_PG_DEVELOPER_EMAIL: ${{ secrets.FLYWAY_PG_DEVELOPER_EMAIL || '' }}
+          MILL_PGP_SECRET_BASE64: ${{ secrets.MILL_PGP_SECRET_BASE64 }}
+          MILL_PGP_PASSPHRASE: ${{ secrets.MILL_PGP_PASSPHRASE }}
+          SONATYPE_CENTRAL_RELEASE: ${{ github.event_name == 'push' && 'true' || inputs.release }}
         run: |
-          ZIP_FILE=$(find . -name "bundle.zip" | head -1)
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          NEW_ZIP_NAME="flyway-pg-${TAG_NAME}.zip"
-          mv "$ZIP_FILE" "$NEW_ZIP_NAME"
-          echo "zip-file=$NEW_ZIP_NAME" >> $GITHUB_OUTPUT
-          echo "zip-name=$NEW_ZIP_NAME" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.get-zip.outputs.zip-file }}
-          generate_release_notes: true
+          ./mill --no-server publishSonatypeCentral \
+            --username "${{ secrets.MILL_SONATYPE_USERNAME }}" \
+            --password "${{ secrets.MILL_SONATYPE_PASSWORD }}" \
+            --sources false \
+            --docs false
