@@ -19,6 +19,7 @@
  */
 package org.flywaydb.commandline.command.dbsupport;
 
+import static org.flywaydb.core.internal.database.DatabaseTypeRegister.getDatabaseTypes;
 import static org.flywaydb.core.internal.util.TelemetryUtils.getTelemetryManager;
 
 import lombok.CustomLog;
@@ -29,7 +30,7 @@ import org.flywaydb.core.api.configuration.Configuration;
 import org.flywaydb.core.extensibility.CommandExtension;
 import org.flywaydb.core.extensibility.EventTelemetryModel;
 import org.flywaydb.core.extensibility.LicenseGuard;
-import org.flywaydb.core.internal.database.DatabaseType;
+import org.flywaydb.core.internal.database.GeneralDatabaseType;
 import org.flywaydb.core.internal.license.VersionPrinter;
 import org.flywaydb.core.internal.util.Pair;
 import org.flywaydb.core.internal.util.StringUtils;
@@ -53,14 +54,13 @@ public class ListEnginesCommandExtension implements CommandExtension<DbSupportRe
 
     @Override
     @SneakyThrows
-    public DbSupportResult handle(Configuration config,
-        List<String> flags) throws FlywayException {
+    public DbSupportResult handle(Configuration config, List<String> flags) throws FlywayException {
         return TelemetrySpan.trackSpan(new EventTelemetryModel(DB_SUPPORT, getTelemetryManager(config)),
             (telemetryModel) -> listEngines(config));
     }
 
     private DbSupportResult listEngines(final Configuration config) {
-        List<DbInfoResult> databaseInfos = getEngines(config);
+        List<DbInfoResult> databaseInfos = getEngines();
 
         if (!databaseInfos.isEmpty()) {
 
@@ -91,14 +91,8 @@ public class ListEnginesCommandExtension implements CommandExtension<DbSupportRe
 
     /**
      * Get the currently supported database engines.
-     *
-     * @param config The Flyway configuration.
      */
-    public List<DbInfoResult> getEngines(Configuration config) {
-        return config.getPluginRegister()
-            .getInstancesOf(DatabaseType.class)
-            .stream()
-            .map(p -> new DbInfoResult(p.getName()))
-            .toList();
+    public List<DbInfoResult> getEngines() {
+        return getDatabaseTypes().stream().map(GeneralDatabaseType::getName).distinct().map(DbInfoResult::new).toList();
     }
 }

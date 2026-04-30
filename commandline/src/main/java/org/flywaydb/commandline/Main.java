@@ -76,6 +76,7 @@ import org.flywaydb.core.internal.publishing.OperationResultPublisher;
 import org.flywaydb.core.internal.publishing.PublishingConfigurationExtension;
 import org.flywaydb.core.internal.reports.ReportDetails;
 import org.flywaydb.core.internal.reports.ReportGenerationOutput;
+import org.flywaydb.core.internal.reports.ReportGenerationOutputMerger;
 import org.flywaydb.core.internal.reports.ResultReportGenerator;
 import org.flywaydb.core.internal.util.CommandExtensionUtils;
 import org.flywaydb.core.internal.util.FlywayDbWebsiteLinks;
@@ -142,7 +143,8 @@ public class Main {
                     final List<ResultReportGenerator> reportGenerators = PLUGIN_REGISTER.getInstancesOf(
                         ResultReportGenerator.class);
                     for (final ResultReportGenerator resultReportGenerator : reportGenerators) {
-                        reportGenerationOutput = resultReportGenerator.generateReport(result, configuration);
+                        final ReportGenerationOutput output = resultReportGenerator.generateReport(result, configuration);
+                        reportGenerationOutput = ReportGenerationOutputMerger.merge(reportGenerationOutput, output);
                     }
 
                     if (configuration.getPluginRegister()
@@ -235,6 +237,11 @@ public class Main {
                     commandLineArguments,
                     flywayTelemetryManager,
                     executionConfiguration);
+
+                if (operationResult == null) {
+                    continue;
+                }
+
                 individualResults.add(operationResult);
                 if (operationResult instanceof HtmlResult
                     && ((HtmlResult) operationResult).exceptionObject instanceof FlywayMigrateException) {
@@ -448,6 +455,9 @@ public class Main {
             if (reportDetails.getHtmlReportFilename() != null) {
                 objectNode.put("htmlReport", reportDetails.getHtmlReportFilename());
             }
+            if (reportDetails.getSarifReportFilename() != null) {
+                objectNode.put("sarifReport", reportDetails.getSarifReportFilename());
+            }
         }
 
         return mapper.writeValueAsString(objectNode);
@@ -479,21 +489,6 @@ public class Main {
             .map(u -> u.getLeft().length() + 3)
             .orElse(11);
         LOG.info(indent + StringUtils.rightPad("help", padSize, ' ') + "Print this usage info and exit");
-
-
-
-        LOG.info(indent + StringUtils.rightPad("migrate", padSize, ' ') + "Migrates the database");
-        LOG.info(indent + StringUtils.rightPad("clean", padSize, ' ') + "Drops all objects in the configured schemas");
-        LOG.info(indent
-            + StringUtils.rightPad("info", padSize, ' ')
-            + "Prints the information about applied, current and pending migrations");
-        LOG.info(indent
-            + StringUtils.rightPad("validate", padSize, ' ')
-            + "Validates the applied migrations against the ones on the classpath");
-        LOG.info(indent
-            + StringUtils.rightPad("baseline", padSize, ' ')
-            + "Baselines an existing database at the baselineVersion");
-        LOG.info(indent + StringUtils.rightPad("repair", padSize, ' ') + "Repairs the schema history table");
         for (final Pair<String, String> usage : usages) {
             final List<String> lines = Arrays.stream(usage.getRight().split("\n")).map(String::trim).toList();
             LOG.info(indent + StringUtils.rightPad(usage.getLeft(), padSize, ' ') + lines.get(0));
