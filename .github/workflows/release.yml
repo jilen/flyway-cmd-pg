@@ -53,7 +53,7 @@ jobs:
       - name: Publish to Maven Central
         env:
           FLYWAY_PG_VERSION: ${{ steps.version.outputs.version }}
-          FLYWAY_PG_GROUP_ID: ${{ secrets.FLYWAY_PG_GROUP_ID || 'io.github.jilen' }}
+          FLYWAY_PG_GROUP_ID: ${{ secrets.FLYWAY_PG_GROUP_ID || 'com.github.jilen' }}
           FLYWAY_PG_ORGANIZATION: ${{ secrets.FLYWAY_PG_ORGANIZATION || 'flyway-pg' }}
           FLYWAY_PG_URL: ${{ secrets.FLYWAY_PG_URL || 'https://github.com/jilen/flyway-pg' }}
           FLYWAY_PG_SCM_URL: ${{ secrets.FLYWAY_PG_SCM_URL || 'https://github.com/jilen/flyway-pg' }}
