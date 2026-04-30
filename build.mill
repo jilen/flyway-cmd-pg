@@ -60,7 +60,7 @@ object `package` extends SonatypeCentralPublishModule {
   def artifactName = "flyway-pg"
 
   def publishGroupId = Task.Input {
-    Task.env.getOrElse("FLYWAY_PG_GROUP_ID", "io.github.jilen")
+    Task.env.getOrElse("FLYWAY_PG_GROUP_ID", "com.github.jilen")
   }
 
   def publishVersion = Task.Input {
